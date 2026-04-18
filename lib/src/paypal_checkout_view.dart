@@ -20,13 +20,8 @@ import 'package:flutter_paypal_payment_checkout_v2/src/v1/paypal_service_v1.dart
 import 'package:flutter_paypal_payment_checkout_v2/src/v2/paypal_service_v2.dart';
 
 import 'models/paypal_payment_model.dart'
-    show PayPalGetCheckOutUrl, PaypalPaymentModel;
+    show PaypalPaymentModel, PaypalCheckoutConfig, PayPalApiVersion;
 
-/// Supported PayPal API versions.
-///
-/// - [PayPalApiVersion.v1] → Legacy Payments API V1.
-/// - [PayPalApiVersion.v2] → Modern Orders API V2 (recommended).
-enum PayPalApiVersion { v1, v2 }
 
 /// Main checkout widget that handles the entire PayPal flow.
 ///
@@ -40,110 +35,11 @@ enum PayPalApiVersion { v1, v2 }
 /// - Executes/captures the payment for client-side flows.
 /// - Returns the result to [onUserPayment], [onCancel], or [onError].
 class PaypalCheckoutView extends StatefulWidget {
-  /// Which PayPal API version to use.
-  ///
-  /// - [PayPalApiVersion.v1] → uses [PaypalServicesV1] and V1 models.
-  /// - [PayPalApiVersion.v2] → uses [PaypalServicesV2] and V2 models.
-  final PayPalApiVersion version;
-
-  /// Called when the user completes the payment flow.
-  ///
-  /// - `response` may be `null` when using the **backend-driven** flow
-  ///   (where the server executes/captures and the client only receives
-  ///   the `PaypalPaymentModel`).
-  /// - `payment` is always the [PaypalPaymentModel] created at the start.
-  final PayPalOnSuccess onUserPayment;
-
-  /// Called when the user cancels the PayPal checkout flow.
-  final Function onCancel;
-
-  /// Called when any error occurs during:
-  /// - Initialization
-  /// - Network calls
-  /// - Version mismatch
-  /// - Unknown exceptions
-  final PayPalOnError onError;
-
-  /// App bar title displayed at the top of the checkout screen.
-  final String appBarTitle;
-
-  /// Optional note or description (not currently used in logic, but available
-  /// for future enhancements or custom UIs).
-  final String? note;
-
-  /// Most secure workflow:
-  ///
-  /// Your backend:
-  /// - Creates the PayPal order/payment.
-  /// - Returns a [PaypalPaymentModel] with `approvalUrl`.
-  ///
-  /// The client:
-  /// - Only loads that URL and listens for return/cancel.
-  ///
-  /// Use this when you do **not** want to expose credentials or perform
-  /// PayPal API calls in the client.
-  final PayPalGetCheckOutUrl? approvalUrl;
-
-  /// Less secure and generally not recommended for production.
-  ///
-  /// Used when:
-  /// - The client must request an access token directly.
-  /// - The backend cannot (or does not) create the order itself.
-  ///
-  /// This function should return a **server-generated** access token,
-  /// not client credentials.
-  final PayPalGetAccessToken? getAccessToken;
-
-  /// Should NEVER be used in production.
-  ///
-  /// Only for testing or demo apps where you cannot set up a backend yet.
-  /// Passing [clientId] and [secretKey] into the app is insecure because
-  /// they can be extracted from the binary.
-  final String? clientId, secretKey;
-
-  /// Optional custom loading widget shown while:
-  /// - Initializing the payment/order, or
-  /// - Waiting for callbacks.
-  final Widget? loadingIndicator;
-
-  /// The PayPal order model used to build the request.
-  ///
-  /// - For V1: [PayPalOrderRequestV1]
-  /// - For V2: [PayPalOrderRequestV2]
-  ///
-  /// When using [approvalUrl], this may be `null` if your backend
-  /// handles all order creation and execution logic.
-  final PayPalOrderRequestBase? payPalOrder;
-
-  /// When `true` → uses PayPal sandbox endpoints.
-  ///
-  /// When `false` → uses live production endpoints.
-  final bool sandboxMode;
-
-  /// By default this is `false`.
-  ///
-  /// If set to `true`, it bypasses the safety check that normally prevents
-  /// using [clientId]/[secretKey] in non-sandbox mode.
-  ///
-  /// ⚠️ Only set this to `true` if you **fully understand the security risk**.
-  final bool overrideInsecureClientCredentials;
+ final PaypalCheckoutConfig config;
 
   const PaypalCheckoutView({
     Key? key,
-    required this.onUserPayment,
-    required this.getAccessToken,
-    required this.onError,
-    required this.onCancel,
-    required this.payPalOrder,
-    required this.clientId,
-    required this.secretKey,
-    required this.sandboxMode,
-    this.overrideInsecureClientCredentials = false,
-    this.appBarTitle = "Paypal Payment",
-    this.note = '',
-    this.loadingIndicator,
-    this.approvalUrl,
-    required this.version,
+    required this.config,
   }) : super(key: key);
 
   @override
@@ -165,7 +61,7 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
   late InAppWebViewController webView;
 
   /// Convenience getter to check if the widget is configured for V1.
-  bool get _isV1 => widget.version == PayPalApiVersion.v1;
+  bool get _isV1 => widget.config.version == PayPalApiVersion.v1;
 
   /// Initializes the PayPal flow:
   ///
@@ -179,31 +75,31 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
     // Pick the correct service implementation based on the order type
     if (_isV1) {
       services = PaypalServicesV1(
-        getAccessTokenFunction: widget.getAccessToken,
-        sandboxMode: widget.sandboxMode,
-        clientId: widget.clientId,
-        secretKey: widget.secretKey,
+        getAccessTokenFunction: widget.config.getAccessToken,
+        sandboxMode: widget.config.sandboxMode,
+        clientId: widget.config.clientId,
+        secretKey: widget.config.secretKey,
         overrideInsecureClientCredentials:
-            widget.overrideInsecureClientCredentials,
+            widget.config.overrideInsecureClientCredentials,
       );
     } else {
       services = PaypalServicesV2(
-        getAccessTokenFunction: widget.getAccessToken,
-        sandboxMode: widget.sandboxMode,
-        clientId: widget.clientId,
-        secretKey: widget.secretKey,
+        getAccessTokenFunction: widget.config.getAccessToken,
+        sandboxMode: widget.config.sandboxMode,
+        clientId: widget.config.clientId,
+        secretKey: widget.config.secretKey,
         overrideInsecureClientCredentials:
-            widget.overrideInsecureClientCredentials,
+            widget.config.overrideInsecureClientCredentials,
       );
     }
 
     // Optional safety: ensure order type matches selected service version.
-    if (widget.payPalOrder != null) {
-      final isOrderV1 = widget.payPalOrder!.isV1;
+    if (widget.config.payPalOrder != null) {
+      final isOrderV1 = widget.config.payPalOrder!.isV1;
       final isServiceV1 = services is PaypalServicesV1;
 
       if (isOrderV1 != isServiceV1) {
-        widget.onError(
+        widget.config.onError(
           PayPalErrorModel(
             error: "Order type does not match selected PayPal service version.",
             message:
@@ -221,12 +117,12 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
 
     try {
       final result = await services.initialize(
-        getApprovalUrl: widget.approvalUrl,
-        payPalOrder: widget.payPalOrder,
+        getApprovalUrl: widget.config.approvalUrl,
+        payPalOrder: widget.config.payPalOrder,
       );
 
       result.fold(
-        (error) => widget.onError(error),
+        (error) => widget.config.onError(error),
         (paymentModel) {
           setState(() {
             this.paymentModel = paymentModel;
@@ -234,7 +130,7 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
         },
       );
     } catch (e) {
-      widget.onError(
+      widget.config.onError(
         PayPalErrorModel(
           error: e.toString(),
           message: "Unknown error",
@@ -260,10 +156,10 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
-          title: Text(widget.appBarTitle),
+          title: Text(widget.config.appBarTitle),
         ),
         body: Center(
-          child: widget.loadingIndicator ?? const CircularProgressIndicator(),
+          child: widget.config.loadingIndicator ?? const CircularProgressIndicator(),
         ),
       );
     }
@@ -274,7 +170,7 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        title: Text(widget.appBarTitle),
+        title: Text(widget.config.appBarTitle),
       ),
       body: Stack(
         children: <Widget>[
@@ -293,7 +189,7 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
               }
 
               if (urlStr.contains(cancelURL)) {
-                widget.onCancel();
+                widget.config.onCancel();
                 return NavigationActionPolicy.CANCEL;
               }
 
@@ -306,7 +202,7 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
               webView = controller;
             },
             onCloseWindow: (controller) {
-              widget.onCancel();
+              widget.config.onCancel();
             },
             onProgressChanged: (controller, progress) {
               setState(() {
@@ -357,7 +253,7 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
     // you can just exit early when there's no token/executeUrl.
     if (model.accessToken == null || model.executeUrl == null) {
       // backend will call execute/capture – nothing to do on client
-      widget.onUserPayment(
+      widget.config.onUserPayment(
         null,
         model,
       );
@@ -368,7 +264,7 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
     final payerId = url?.queryParameters['PayerID'];
 
     if (payerId == null) {
-      widget.onError(
+      widget.config.onError(
         PayPalErrorModel(
           error: "PayerID is null",
           message: "PayerID is null",
@@ -388,9 +284,9 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
     );
 
     result.fold(
-      (error) => widget.onError(error),
+      (error) => widget.config.onError(error),
       (success) {
-        widget.onUserPayment(
+        widget.config.onUserPayment(
           success,
           model,
         );
@@ -414,7 +310,7 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
     // If you're in the new flow where the backend will execute/capture,
     // you can just exit early when there's no token/orderId.
     if (model.accessToken == null || model.orderId == null) {
-      final result = await widget.onUserPayment(
+      final result = await widget.config.onUserPayment(
         null,
         model,
       );
@@ -425,7 +321,7 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
               "Backend flow => error: $error",
             );
           }
-          widget.onError(
+          widget.config.onError(
             error,
           );
         },
@@ -447,9 +343,9 @@ class _PaypalCheckoutViewState extends State<PaypalCheckoutView> {
     );
 
     result.fold(
-      (error) => widget.onError(error),
+      (error) => widget.config.onError(error),
       (success) {
-        widget.onUserPayment(
+        widget.config.onUserPayment(
           success,
           model,
         );

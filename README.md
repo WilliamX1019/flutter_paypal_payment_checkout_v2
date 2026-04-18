@@ -60,7 +60,7 @@ Flutter code can always be decompiled.
 
 ```yaml
 dependencies:
-  flutter_paypal_payment_checkout_v2: ^2.1.0
+  flutter_paypal_payment_checkout_v2: ^2.1.1
 ```
 
 ```bash
@@ -71,9 +71,9 @@ flutter pub get
 
 # 🧭 Choosing an API Version
 
-| API                   | Recommended?  | Notes                                            |
-| --------------------- | ------------- | ------------------------------------------------ |
-| **V2 (Orders API)**   | ✅ Yes         | Modern, secure, officially recommended by PayPal |
+| API                   | Recommended? | Notes                                            |
+| --------------------- | ------------ | ------------------------------------------------ |
+| **V2 (Orders API)**   | ✅ Yes        | Modern, secure, officially recommended by PayPal |
 | **V1 (Payments API)** | ⚠️ Deprecated | Older, but still supported for legacy apps       |
 ---
 
@@ -88,37 +88,39 @@ void startPayPalFlow(BuildContext context, int servicePlanId) async {
     context,
     MaterialPageRoute(
       builder: (_) => PaypalCheckoutView<PaypalPaymentModel>(
-        version: PayPalApiVersion.v2,
-        sandboxMode: true,
-        /// Pass a function that fetches the checkout URL and model from your backend
-        getCheckoutUrl: () async {
-          final result = await service.createOrder(servicePlanId: servicePlanId);
-          return result; // Either<PayPalErrorModel, PaypalPaymentModel>
-        },
+        config: PaypalCheckoutConfig(
+          version: PayPalApiVersion.v2,
+          sandboxMode: true,
+          /// Pass a function that fetches the checkout URL and model from your backend
+          getCheckoutUrl: () async {
+            final result = await service.createOrder(servicePlanId: servicePlanId);
+            return result; // Either<PayPalErrorModel, PaypalPaymentModel>
+          },
 
-        onUserPayment: (success, payment) async {
-          print("Payment approved: ${payment.toJson()}");
-          print("Capture data: ${success?.data}");
+          onUserPayment: (success, payment) async {
+            print("Payment approved: ${payment.toJson()}");
+            print("Capture data: ${success?.data}");
 
-          // Capture via backend
-          final captureResult = await service.captureOrder(orderId: payment.orderId!);
-          captureResult.fold(
-                (failure) => print("Capture failed: ${failure.message}"),
-                (_) => print("Payment captured successfully"),
-          );
+            // Capture via backend
+            final captureResult = await service.captureOrder(orderId: payment.orderId!);
+            captureResult.fold(
+                  (failure) => print("Capture failed: ${failure.message}"),
+                  (_) => print("Payment captured successfully"),
+            );
 
-          return Right<PayPalErrorModel, dynamic>(success?.data);
-        },
+            return Right<PayPalErrorModel, dynamic>(success?.data);
+          },
 
-        onError: (error) {
-          print("Checkout error: ${error.message}");
-          Navigator.pop(context);
-        },
+          onError: (error) {
+            print("Checkout error: ${error.message}");
+            Navigator.pop(context);
+          },
 
-        onCancel: () {
-          print("Payment cancelled by user");
-          Navigator.pop(context);
-        },
+          onCancel: () {
+            print("Payment cancelled by user");
+            Navigator.pop(context);
+          },
+        ),
       ),
     ),
   );
@@ -224,21 +226,23 @@ void _startV1Flow(BuildContext context) {
     context,
     MaterialPageRoute(
       builder: (_) => PaypalCheckoutView(
-        version: PayPalApiVersion.v1,
-        sandboxMode: true,
-        clientId: "SANDBOX_CLIENT_ID",
-        secretKey: "SANDBOX_SECRET_KEY",
-        getAccessToken: null,
-        approvalUrl: null,
-        payPalOrder: order,
-        onUserPayment: (success, payment) async {
-          print("Order Captured: ${success?.data}");
-          return const Right<PayPalErrorModel, dynamic>(
-            null,
-          );
-        },
-        onError: (err) => print("Error: ${err.message}"),
-        onCancel: () => print("Cancelled"),
+        config: PaypalCheckoutConfig(
+          version: PayPalApiVersion.v1,
+          sandboxMode: true,
+          clientId: "SANDBOX_CLIENT_ID",
+          secretKey: "SANDBOX_SECRET_KEY",
+          getAccessToken: null,
+          approvalUrl: null,
+          payPalOrder: order,
+          onUserPayment: (success, payment) async {
+            print("Order Captured: ${success?.data}");
+            return const Right<PayPalErrorModel, dynamic>(
+              null,
+            );
+          },
+          onError: (err) => print("Error: ${err.message}"),
+          onCancel: () => print("Cancelled"),
+        ),
       ),
     ),
   );
@@ -253,17 +257,20 @@ void _startV1Flow(BuildContext context) {
 
 ```dart
 PaypalCheckoutView(
-  version: PayPalApiVersion.v2,
-  sandboxMode: true,
-  clientId: "SANDBOX_CLIENT_ID",
-  secretKey: "SANDBOX_SECRET_KEY",
-  overrideInsecureClientCredentials: true,
-  payPalOrder: simpleV2Order,
-  getAccessToken: null,
-  approvalUrl: null,
-  onUserPayment: (success, payment) => print(success?.data),
-  onError: print,
-  onCancel: () => print("Cancelled"),
+  config: PaypalCheckoutConfig(
+      version: PayPalApiVersion.v2,
+      sandboxMode: true,
+      clientId: "SANDBOX_CLIENT_ID",
+      secretKey: "SANDBOX_SECRET_KEY",
+      overrideInsecureClientCredentials: true,
+      payPalOrder: simpleV2Order,
+      getAccessToken: null,
+      approvalUrl: null,
+      onUserPayment: (success, payment) => print(success?.data),
+      onError: print,
+      onCancel: () => print("Cancelled",
+    ),
+  ),
 );
 ```
 

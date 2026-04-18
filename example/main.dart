@@ -1,6 +1,5 @@
 import 'dart:developer';
 
-import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_paypal_payment_checkout_v2/flutter_paypal_payment_checkout_v2.dart';
 
@@ -110,33 +109,35 @@ class PaypalDemoHome extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => PaypalCheckoutView(
-          version: PayPalApiVersion.v2,
-          // 👇 In production, prefer getting approvalUrl / accessToken from backend
-          getAccessToken: null,
-          // using clientId/secret (sandbox ONLY)
-          approvalUrl: null,
+          config: PaypalCheckoutConfig(
+            version: PayPalApiVersion.v2,
+            // 👇 In production, prefer getting approvalUrl / accessToken from backend
+            getAccessToken: null,
+            // using clientId/secret (sandbox ONLY)
+            approvalUrl: null,
 
-          sandboxMode: true,
-          clientId: 'ONLY FOR SANDBOX (TESTING PURPOSES ONLY)',
-          secretKey: 'ONLY FOR SANDBOX (TESTING PURPOSES ONLY)',
+            sandboxMode: true,
+            clientId: 'ONLY FOR SANDBOX (TESTING PURPOSES ONLY)',
+            secretKey: 'ONLY FOR SANDBOX (TESTING PURPOSES ONLY)',
 
-          payPalOrder: order,
-          onUserPayment: (success, payment) async {
-            log('V2 onSuccess payment: ${payment.toJson()}');
-            log('V2 onSuccess capture data: ${success?.data}');
-            Navigator.pop(context);
-            return const Right<PayPalErrorModel, dynamic>(
-              null,
-            );
-          },
-          onError: (error) {
-            log('V2 onError: ${error.message} (${error.key})');
-            Navigator.pop(context);
-          },
-          onCancel: () {
-            log('V2 cancelled by user');
-            Navigator.pop(context);
-          },
+            payPalOrder: order,
+            onUserPayment: (success, payment) async {
+              log('V2 onSuccess payment: ${payment.toJson()}');
+              log('V2 onSuccess capture data: ${success?.data}');
+              Navigator.pop(context);
+              return const Right<PayPalErrorModel, dynamic>(
+                null,
+              );
+            },
+            onError: (error) {
+              log('V2 onError: ${error.message} (${error.key})');
+              Navigator.pop(context);
+            },
+            onCancel: () {
+              log('V2 cancelled by user');
+              Navigator.pop(context);
+            },
+          ),
         ),
       ),
     );
@@ -252,33 +253,35 @@ class PaypalDemoHome extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => PaypalCheckoutView(
-          version: PayPalApiVersion.v1,
-          // 👇 In production, prefer backend access token / approvalUrl
-          getAccessToken: null,
-          // using clientId/secret (sandbox ONLY)
-          approvalUrl: null,
+          config: PaypalCheckoutConfig(
+            version: PayPalApiVersion.v1,
+            // 👇 In production, prefer backend access token / approvalUrl
+            getAccessToken: null,
+            // using clientId/secret (sandbox ONLY)
+            approvalUrl: null,
 
-          sandboxMode: true,
-          clientId: 'ONLY FOR SANDBOX (TESTING PURPOSES ONLY)',
-          secretKey: 'ONLY FOR SANDBOX (TESTING PURPOSES ONLY)',
+            sandboxMode: true,
+            clientId: 'ONLY FOR SANDBOX (TESTING PURPOSES ONLY)',
+            secretKey: 'ONLY FOR SANDBOX (TESTING PURPOSES ONLY)',
 
-          payPalOrder: order,
-          onUserPayment: (success, payment) async {
-            log('V1 onSuccess payment: ${payment.toJson()}');
-            log('V1 onSuccess execute data: ${success?.data}');
-            Navigator.pop(context);
-            return const Right<PayPalErrorModel, dynamic>(
-              null,
-            );
-          },
-          onError: (error) {
-            log('V1 onError: ${error.message} (${error.key})');
-            Navigator.pop(context);
-          },
-          onCancel: () {
-            log('V1 cancelled by user');
-            Navigator.pop(context);
-          },
+            payPalOrder: order,
+            onUserPayment: (success, payment) async {
+              log('V1 onSuccess payment: ${payment.toJson()}');
+              log('V1 onSuccess execute data: ${success?.data}');
+              Navigator.pop(context);
+              return const Right<PayPalErrorModel, dynamic>(
+                null,
+              );
+            },
+            onError: (error) {
+              log('V1 onError: ${error.message} (${error.key})');
+              Navigator.pop(context);
+            },
+            onCancel: () {
+              log('V1 cancelled by user');
+              Navigator.pop(context);
+            },
+          ),
         ),
       ),
     );

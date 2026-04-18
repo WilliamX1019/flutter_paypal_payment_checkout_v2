@@ -6,6 +6,57 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## **2.1.1 — 2025-12-12**
+
+### 🧩 Configuration Refactor & DX Improvements
+
+This release focuses on improving developer experience, reducing constructor complexity, and making the checkout flow easier to scale and maintain.
+
+### **✨ New & Updated Features**
+
+#### **Unified Checkout Configuration Model**
+
+* Introduced **`PaypalCheckoutConfig`** as a single source of truth for all checkout parameters.
+* Replaced large constructor parameter list in `PaypalCheckoutView` with a single `config` object.
+* Significantly improves readability, maintainability, and scalability.
+
+#### **Cleaner Widget API**
+
+* `PaypalCheckoutView` now accepts:
+
+  ```dart
+  final PaypalCheckoutConfig config;
+  ```
+
+* Eliminates parameter explosion and makes integration more intuitive.
+
+#### **Improved Code Organization**
+
+* Grouped related properties (callbacks, security, UI, order data) into a structured model.
+* Prepares the SDK for future enhancements like:
+
+  * Builder patterns
+  * Flow-specific validation (backend vs client-driven)
+  * Modular configs (UI / Security / Callbacks)
+
+#### **Backward Compatibility Note**
+
+* ⚠️ This is a **breaking change**:
+
+  * Direct constructor parameters have been removed.
+  * You must migrate to using `PaypalCheckoutConfig`.
+
+---
+
+### **💡 Why This Matters**
+
+* Easier integration for new developers
+* Cleaner and more maintainable codebases
+* Reduces human error when passing multiple parameters
+* Sets foundation for more advanced API patterns in future releases
+
+---
+
 ## **2.1.0 — 2025-12-11**
 
 ### 🚀 Backend Flexibility, Async Validation & Error Handling Overhaul
