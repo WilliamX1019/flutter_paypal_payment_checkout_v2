@@ -14,7 +14,7 @@ typedef PayPalGetCheckOutUrl
 /// This model is typically returned after creating a PayPal order and contains:
 /// - The approval URL for redirecting the user to PayPal.
 /// - The `orderId` needed for capture.
-/// - Optional `executeUrl` / `accessToken` (used in older PayPal V1 flows).
+/// - Optional `accessToken` (used when the client handles capture).
 /// - Return and cancel URLs.
 /// - Status information and common base error fields.
 ///
@@ -36,15 +36,14 @@ class PaypalPaymentModel extends PayPalBaseModel {
   /// Optional PayPal order/payment status.
   final String? status;
 
-  /// Optional OAuth access token (commonly used in PayPal V1 integrations).
+  /// Optional OAuth access token used to authorize the capture call.
+  ///
+  /// When using a backend-driven flow, this is typically `null` because
+  /// the backend handles capture directly.
   final String? accessToken;
-
-  /// Optional execute URL used in legacy PayPal execution flow (V1 only).
-  final String? executeUrl;
 
   PaypalPaymentModel({
     required this.approvalUrl,
-    required this.executeUrl,
     required this.accessToken,
     this.returnURL = defaultReturnURL,
     this.cancelURL = defaultCancelURL,
@@ -62,7 +61,6 @@ class PaypalPaymentModel extends PayPalBaseModel {
     return {
       "orderId": orderId,
       "approvalUrl": approvalUrl,
-      "executeUrl": executeUrl,
       "accessToken": accessToken,
       "returnURL": returnURL,
       "cancelURL": cancelURL,
@@ -74,24 +72,11 @@ class PaypalPaymentModel extends PayPalBaseModel {
   }
 }
 
-/// Supported PayPal API versions.
-///
-/// - [PayPalApiVersion.v1] → Legacy Payments API V1.
-/// - [PayPalApiVersion.v2] → Modern Orders API V2 (recommended).
-
-enum PayPalApiVersion { v1, v2 }
-
 class PaypalCheckoutConfig {
-  /// Which PayPal API version to use.
-  ///
-  /// - [PayPalApiVersion.v1] → uses [PaypalServicesV1] and V1 models.
-  /// - [PayPalApiVersion.v2] → uses [PaypalServicesV2] and V2 models.
-  final PayPalApiVersion version;
-
   /// Called when the user completes the payment flow.
   ///
   /// - `response` may be `null` when using the **backend-driven** flow
-  ///   (where the server executes/captures and the client only receives
+  ///   (where the server captures and the client only receives
   ///   the `PaypalPaymentModel`).
   /// - `payment` is always the [PaypalPaymentModel] created at the start.
   final PayPalOnSuccess onUserPayment;
@@ -102,7 +87,6 @@ class PaypalCheckoutConfig {
   /// Called when any error occurs during:
   /// - Initialization
   /// - Network calls
-  /// - Version mismatch
   /// - Unknown exceptions
   final PayPalOnError onError;
 
@@ -116,7 +100,7 @@ class PaypalCheckoutConfig {
   /// Most secure workflow:
   ///
   /// Your backend:
-  /// - Creates the PayPal order/payment.
+  /// - Creates the PayPal order.
   /// - Returns a [PaypalPaymentModel] with `approvalUrl`.
   ///
   /// The client:
@@ -148,14 +132,11 @@ class PaypalCheckoutConfig {
   /// - Waiting for callbacks.
   final Widget? loadingIndicator;
 
-  /// The PayPal order model used to build the request.
-  ///
-  /// - For V1: [PayPalOrderRequestV1]
-  /// - For V2: [PayPalOrderRequestV2]
+  /// The PayPal V2 order model used to build the request.
   ///
   /// When using [approvalUrl], this may be `null` if your backend
-  /// handles all order creation and execution logic.
-  final PayPalOrderRequestBase? payPalOrder;
+  /// handles all order creation and capture logic.
+  final PayPalOrderRequestV2? payPalOrder;
 
   /// When `true` → uses PayPal sandbox endpoints.
   ///
@@ -175,7 +156,7 @@ class PaypalCheckoutConfig {
     required this.getAccessToken,
     required this.onError,
     required this.onCancel,
-    required this.payPalOrder,
+    this.payPalOrder,
     required this.clientId,
     required this.secretKey,
     required this.sandboxMode,
@@ -184,6 +165,5 @@ class PaypalCheckoutConfig {
     this.note = '',
     this.loadingIndicator,
     this.approvalUrl,
-    required this.version,
   });
 }

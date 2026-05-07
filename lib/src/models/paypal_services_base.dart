@@ -6,7 +6,7 @@ import 'package:flutter_paypal_payment_checkout_v2/src/functions/paypal_safe_api
 import 'package:flutter_paypal_payment_checkout_v2/src/models/paypal_payment_model.dart';
 import 'package:flutter_paypal_payment_checkout_v2/src/models/paypal_shared_models.dart';
 
-/// Base class for all PayPal service implementations (V1 or V2).
+/// Base class for the PayPal V2 service implementation.
 ///
 /// This class handles:
 /// - Inline credential validation (security warnings for production).
@@ -73,7 +73,7 @@ abstract class PaypalServicesBase {
             "You are passing clientId / secretKey directly into the app while not in sandboxMode.\n\n"
             "This is NOT safe for production: anyone can decompile the app and steal your PayPal keys.\n"
             "Recommended production setup:\n"
-            "- Move all PayPal calls (access token, create order/payment, capture) to your backend.\n"
+            "- Move all PayPal calls (access token, create order, capture) to your backend.\n"
             "- Use the `approvalUrl` callback so the client only receives the checkout URL.",
         key: "INSECURE_CLIENT_CREDENTIALS",
         code: 400,
@@ -210,21 +210,17 @@ abstract class PaypalServicesBase {
 
         // Validate order content
         if (payPalOrder.isEmpty) {
-          final label = payPalOrder.isV1 ? "Transactions" : "Purchase Units";
-          final key =
-              payPalOrder.isV1 ? "EMPTY_TRANSACTIONS" : "EMPTY_PURCHASE_UNITS";
-
           return Left(
             PayPalErrorModel(
-              error: "$label cannot be empty.",
-              message: "$label cannot be empty.",
-              key: key,
+              error: "Purchase Units cannot be empty.",
+              message: "Purchase Units cannot be empty.",
+              key: "EMPTY_PURCHASE_UNITS",
               code: 400,
             ),
           );
         }
 
-        // Create payment/order via subclass implementation
+        // Create order via subclass implementation
         final createPaypalPaymentResponse = await createPaypalPayment(
           payPalOrder: payPalOrder,
           accessToken: accessTokenModel.accessToken,
@@ -238,14 +234,13 @@ abstract class PaypalServicesBase {
     );
   }
 
-  /// Must be overridden by V1/V2 service implementations.
+  /// Must be overridden by the V2 service implementation.
   ///
   /// Responsible for:
   /// - Sending the order creation request to PayPal.
   /// - Returning a `PaypalPaymentModel` that contains:
   ///     - approvalUrl
   ///     - orderId
-  ///     - executeUrl (if V1)
   ///     - accessToken
   ///
   /// Returns:

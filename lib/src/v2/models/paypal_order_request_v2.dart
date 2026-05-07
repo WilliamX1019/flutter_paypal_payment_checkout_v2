@@ -77,12 +77,4 @@ class PayPalOrderRequestV2 extends PayPalOrderRequestBase {
   /// Whether the order has no purchase units.
   @override
   bool get isEmpty => purchaseUnits.isEmpty;
-
-  /// Not a V1 model.
-  @override
-  bool get isV1 => false;
-
-  /// True for V2 orders.
-  @override
-  bool get isV2 => true;
 }

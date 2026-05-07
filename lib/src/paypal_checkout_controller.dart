@@ -1,9 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_paypal_payment_checkout_v2/src/models/paypal_payment_model.dart';
-import 'package:flutter_paypal_payment_checkout_v2/src/models/paypal_services_base.dart';
 import 'package:flutter_paypal_payment_checkout_v2/src/models/paypal_shared_models.dart';
-import 'package:flutter_paypal_payment_checkout_v2/src/v1/paypal_service_v1.dart';
 import 'package:flutter_paypal_payment_checkout_v2/src/v2/paypal_service_v2.dart';
 
 /// UI-independent PayPal checkout controller.
@@ -20,7 +18,7 @@ import 'package:flutter_paypal_payment_checkout_v2/src/v2/paypal_service_v2.dart
 /// 4. In your WebView's URL interception, call [matchUrl] to detect
 ///    return/cancel redirects.
 /// 5. When a return URL is detected, call [handleReturnUrl] to
-///    capture/execute the payment.
+///    capture the payment.
 /// 6. When a cancel URL is detected, call [handleCancel].
 /// 7. Call [dispose] when done.
 ///
@@ -76,11 +74,8 @@ class PaypalCheckoutController {
   /// Only available after a successful [initialize] call.
   String? get cancelUrl => _paymentModel?.cancelURL;
 
-  /// Whether the controller uses V1 services.
-  bool get _isV1 => config.version == PayPalApiVersion.v1;
-
   /// Internal service instance.
-  PaypalServicesBase? _services;
+  PaypalServicesV2? _services;
 
   /// Whether the payment flow has already been handled (prevent double-fire).
   bool _handled = false;
@@ -90,10 +85,9 @@ class PaypalCheckoutController {
   /// Initializes the PayPal payment flow.
   ///
   /// This method:
-  /// 1. Creates the correct service (V1 or V2).
-  /// 2. Validates order/service version compatibility.
-  /// 3. Creates the order (or uses backend-provided approval URL).
-  /// 4. Returns the [PaypalPaymentModel] containing the approval URL.
+  /// 1. Creates the V2 service.
+  /// 2. Creates the order (or uses backend-provided approval URL).
+  /// 3. Returns the [PaypalPaymentModel] containing the approval URL.
   ///
   /// After this returns successfully, load [approvalUrl] in your WebView.
   ///
@@ -101,46 +95,14 @@ class PaypalCheckoutController {
   /// - `Right(PaypalPaymentModel)` on success.
   /// - `Left(PayPalErrorModel)` on any error.
   Future<Either<PayPalErrorModel, PaypalPaymentModel>> initialize() async {
-    // Create the correct service
-    if (_isV1) {
-      _services = PaypalServicesV1(
-        getAccessTokenFunction: config.getAccessToken,
-        sandboxMode: config.sandboxMode,
-        clientId: config.clientId,
-        secretKey: config.secretKey,
-        overrideInsecureClientCredentials:
-            config.overrideInsecureClientCredentials,
-      );
-    } else {
-      _services = PaypalServicesV2(
-        getAccessTokenFunction: config.getAccessToken,
-        sandboxMode: config.sandboxMode,
-        clientId: config.clientId,
-        secretKey: config.secretKey,
-        overrideInsecureClientCredentials:
-            config.overrideInsecureClientCredentials,
-      );
-    }
-
-    // Validate order type matches service version
-    if (config.payPalOrder != null) {
-      final isOrderV1 = config.payPalOrder!.isV1;
-      final isServiceV1 = _services is PaypalServicesV1;
-
-      if (isOrderV1 != isServiceV1) {
-        final error = PayPalErrorModel(
-          error: "Order type does not match selected PayPal service version.",
-          message:
-              "You passed a ${isOrderV1 ? 'V1' : 'V2'} order into a ${isServiceV1 ? 'V1' : 'V2'} service.\n\n"
-              "Make sure:\n"
-              "- PayPalOrderRequestV1 → PaypalServicesV1\n"
-              "- PayPalOrderRequestV2 → PaypalServicesV2",
-          key: "ORDER_VERSION_MISMATCH",
-          code: 400,
-        );
-        return Left(error);
-      }
-    }
+    _services = PaypalServicesV2(
+      getAccessTokenFunction: config.getAccessToken,
+      sandboxMode: config.sandboxMode,
+      clientId: config.clientId,
+      secretKey: config.secretKey,
+      overrideInsecureClientCredentials:
+          config.overrideInsecureClientCredentials,
+    );
 
     try {
       final result = await _services!.initialize(
@@ -195,23 +157,14 @@ class PaypalCheckoutController {
   ///
   /// Call this when your WebView detects a URL matching [returnUrl].
   ///
-  /// For V1: Extracts PayerID and executes the payment.
-  /// For V2: Captures the order.
+  /// Captures the order and delivers the result via
+  /// [PaypalCheckoutConfig.onUserPayment] or [PaypalCheckoutConfig.onError].
   ///
-  /// The result is delivered via [PaypalCheckoutConfig.onUserPayment]
-  /// or [PaypalCheckoutConfig.onError].
-  ///
-  /// [url] is the full return URL (needed for V1 to extract PayerID).
-  /// Can be `null` for V2 backend flows.
+  /// [url] is the full return URL. Can be `null` for backend flows.
   Future<void> handleReturnUrl([Uri? url]) async {
     if (_handled) return;
     _handled = true;
-
-    if (_isV1) {
-      await _executePaymentV1(url);
-    } else {
-      await _captureOrderV2();
-    }
+    await _captureOrderV2();
   }
 
   /// Handles the PayPal cancel URL.
@@ -237,48 +190,6 @@ class PaypalCheckoutController {
   /// Releases resources held by this controller.
   void dispose() {
     reset();
-  }
-
-  // ---------------------------------------------------------------------------
-  // PRIVATE: V1 execute flow
-  // ---------------------------------------------------------------------------
-
-  Future<void> _executePaymentV1(Uri? url) async {
-    final model = _paymentModel;
-    if (model == null) return;
-
-    // Backend-driven flow: no token/executeUrl → delegate to callback
-    if (model.accessToken == null || model.executeUrl == null) {
-      config.onUserPayment(null, model);
-      return;
-    }
-
-    // Extract PayerID from return URL
-    final payerId = url?.queryParameters['PayerID'];
-
-    if (payerId == null) {
-      config.onError(
-        PayPalErrorModel(
-          error: "PayerID is null",
-          message: "PayerID is null",
-          key: "PAYMENT_EXECUTE_PAYER_ID_NULL",
-          code: 500,
-        ),
-      );
-      return;
-    }
-
-    final v1 = _services as PaypalServicesV1;
-    final result = await v1.executePayment(
-      model.executeUrl!,
-      payerId,
-      model.accessToken!,
-    );
-
-    result.fold(
-      (error) => config.onError(error),
-      (success) => config.onUserPayment(success, model),
-    );
   }
 
   // ---------------------------------------------------------------------------
@@ -308,8 +219,7 @@ class PaypalCheckoutController {
       return;
     }
 
-    final v2 = _services as PaypalServicesV2;
-    final result = await v2.captureOrder(
+    final result = await _services!.captureOrder(
       model.orderId!,
       model.accessToken!,
     );

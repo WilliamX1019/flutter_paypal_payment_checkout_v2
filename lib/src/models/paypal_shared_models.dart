@@ -73,36 +73,27 @@ typedef PayPalGetAccessToken = Future<String> Function();
 
 /// Function that returns a `transactions`/`purchase_units` map.
 ///
-/// Used by V1/V2 order builders to supply the core PayPal payload.
+/// Used by order builders to supply the core PayPal payload.
 typedef PayPalTransactionsFunction = Map<String, dynamic> Function();
 
-/// Base class for all PayPal order request models (V1 and V2).
+/// Base class for PayPal order request models.
 ///
 /// Implementations must:
 /// - Provide a valid JSON payload via [toJson].
-/// - Indicate whether they are V1 or V2 using [isV1] and [isV2].
 /// - Report if they are empty via [isEmpty]/[isNotEmpty].
 abstract class PayPalOrderRequestBase {
   const PayPalOrderRequestBase();
 
-  /// Must be implemented by V1 and V2 order models.
-  ///
   /// Should return the exact JSON structure expected by the PayPal API.
   Map<String, dynamic> toJson();
 
   /// Whether this order request has no meaningful content.
   ///
-  /// Used to guard against sending empty transactions / purchase units.
+  /// Used to guard against sending empty purchase units.
   bool get isEmpty;
 
   /// Convenience getter for `!isEmpty`.
   bool get isNotEmpty => !isEmpty;
-
-  /// `true` if this order model targets the V1 Payments API.
-  bool get isV1;
-
-  /// `true` if this order model targets the V2 Orders API.
-  bool get isV2;
 }
 
 /// Default deep link return URL used when the PayPal payment succeeds.

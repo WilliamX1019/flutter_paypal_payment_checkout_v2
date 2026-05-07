@@ -1,13 +1,13 @@
-/// Flutter PayPal Payment Checkout (V1 & V2).
+/// Flutter PayPal Payment Checkout (V2).
 ///
 /// This library exposes a single high-level widget:
 /// [PaypalCheckoutView]
 ///
 /// It handles:
-/// - Creating a PayPal payment/order (via V1 or V2 APIs)
+/// - Creating a PayPal order (via V2 Orders API)
 /// - Rendering the approval page in an in-app webview
 /// - Listening to return/cancel URLs
-/// - Executing/capturing the payment (if needed)
+/// - Capturing the payment
 /// - Returning the result via callbacks
 ///
 /// For a UI-free approach, use [PaypalCheckoutController] directly.
@@ -24,7 +24,7 @@ import 'models/paypal_payment_model.dart'
 /// Main checkout widget that handles the entire PayPal flow.
 ///
 /// This widget:
-/// - Initializes the selected PayPal API service (V1 or V2).
+/// - Initializes the PayPal V2 API service.
 /// - Either:
 ///   - Uses a backend-provided [approvalUrl], **or**
 ///   - Creates the payment/order directly from the client.

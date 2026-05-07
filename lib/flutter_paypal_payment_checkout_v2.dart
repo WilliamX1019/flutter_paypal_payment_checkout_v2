@@ -1,12 +1,12 @@
-/// Flutter PayPal Payment Checkout (V1 + V2)
+/// Flutter PayPal Payment Checkout (V2)
 ///
 /// This is the main export file for the package.
 /// It provides:
 ///
 /// - The high-level `PaypalCheckoutView` widget
+/// - The UI-independent `PaypalCheckoutController`
 /// - Base models and shared utilities
-/// - PayPal Payments API **V1** (legacy)
-/// - PayPal Orders API **V2** (recommended)
+/// - PayPal Orders API **V2**
 ///
 /// Developers typically only import:
 ///
@@ -15,8 +15,9 @@
 /// ```
 ///
 /// After that they can use:
-/// - `PaypalCheckoutView`
-/// - All V1/V2 order, item, and amount models
+/// - `PaypalCheckoutView` (built-in WebView UI)
+/// - `PaypalCheckoutController` (bring your own WebView)
+/// - All V2 order, item, and amount models
 /// - All enums for behavior customization
 ///
 /// This file serves as the "public surface" of the SDK.
@@ -29,7 +30,7 @@ library flutter_paypal_payment_checkout_v2;
 /// Provides:
 /// - The in-app PayPal approval webview
 /// - Order creation (client or backend-driven)
-/// - Execution / capture flow
+/// - Capture flow
 /// - `onSuccess`, `onError`, `onCancel` callbacks
 export 'src/paypal_checkout_view.dart';
 
@@ -49,34 +50,14 @@ export 'src/functions/paypal_safe_api_call.dart';
 /// Models representing errors, success responses, tokens, base structures, etc.
 export 'src/models/paypal_payment_model.dart';
 
-/// Base service class that unifies behavior between V1 & V2 implementations.
+/// Base service class for the V2 implementation.
 export 'src/models/paypal_services_base.dart';
 
 /// Shared typedefs, constants, base request class, and callbacks.
 export 'src/models/paypal_shared_models.dart';
 
 // -----------------------------------------------------------------------------
-// PAYPAL V1 API (Legacy Payments API)
-// -----------------------------------------------------------------------------
-
-/// Service implementing PayPal Payments V1:
-/// - `/v1/payments/payment`
-/// - `execute` flow
-export 'src/v1/paypal_service_v1.dart';
-
-// V1 Enums
-export 'src/v1/enums/paypal_allowed_payment_method_v1.dart';
-export 'src/v1/enums/paypal_order_intent_v1.dart';
-
-// V1 Models (items, amounts, transactions, shipping, order request)
-export 'src/v1/models/paypal_transaction_v1.dart';
-export 'src/v1/models/paypal_transaction_v1_amount.dart';
-export 'src/v1/models/paypal_transaction_v1_item.dart';
-export 'src/v1/models/paypal_order_request_v1.dart';
-export 'src/v1/models/paypal_shipping_address_v1.dart';
-
-// -----------------------------------------------------------------------------
-// PAYPAL V2 API (Recommended Orders API)
+// PAYPAL V2 API (Orders API)
 // -----------------------------------------------------------------------------
 
 /// Service implementing PayPal Orders V2:

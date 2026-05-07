@@ -134,7 +134,6 @@ class PaypalServicesV2 extends PaypalServicesBase {
             accessToken: accessToken,
             code: response.statusCode ?? 200,
             status: status,
-            executeUrl: null,
             // Comes from the V2 payment source experience context
             returnURL: payPalOrder.paymentSource.returnUrl,
             cancelURL: payPalOrder.paymentSource.cancelUrl,
