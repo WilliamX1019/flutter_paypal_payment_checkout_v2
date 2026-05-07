@@ -46,6 +46,15 @@ class PaypalDemoHome extends StatelessWidget {
               onPressed: () => _startV1Flow(context),
               child: const Text('Pay with PayPal (V1 – Payments API, legacy)'),
             ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () => _startPayPalBackendFlow(context, 42),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Pay with PayPal (V2 – Backend Flow)'),
+            ),
           ],
         ),
       ),
@@ -60,7 +69,10 @@ class PaypalDemoHome extends StatelessWidget {
       paymentSource: PayPalPaymentSourceV2(
         paymentMethodPreference:
             PayPalPaymentMethodPreferenceV2.immediatePaymentRequired,
-        shippingPreference: PayPalShippingPreferenceV2.noShipping,
+        // 👇 Use getFromFile to let PayPal provide the buyer's saved address
+        //    Use noShipping for digital goods / services
+        //    Use setProvidedAddress to lock a specific address
+        shippingPreference: PayPalShippingPreferenceV2.getFromFile,
         // Where PayPal should redirect the user after they approve or cancel
         // returnUrl: "https://example.com/paypal/return",
         // cancelUrl: "https://example.com/paypal/cancel",
@@ -93,15 +105,18 @@ class PaypalDemoHome extends StatelessWidget {
               upcType: 'UPC_A',
             ),
           ],
-          shippingAddress: PayPalShippingAddressV2(
-            name: 'John Doe',
-            addressLine1: '123 Demo Street',
-            addressLine2: 'Suite 100',
-            city: 'San Francisco',
-            state: 'CA',
-            postalCode: '94105',
-            countryCode: 'US',
-          ),
+          // 👇 When using getFromFile, you can omit shippingAddress
+          //    PayPal will use the buyer's address from their account.
+          //    Uncomment below to pre-fill / lock a specific address:
+          // shippingAddress: PayPalShippingAddressV2(
+          //   name: 'John Doe',
+          //   addressLine1: '123 Demo Street',
+          //   addressLine2: 'Suite 100',
+          //   city: 'San Francisco',
+          //   state: 'CA',
+          //   postalCode: '94105',
+          //   countryCode: 'US',
+          // ),
         ),
       ],
     );
@@ -124,10 +139,39 @@ class PaypalDemoHome extends StatelessWidget {
             onUserPayment: (success, payment) async {
               log('V2 onSuccess payment: ${payment.toJson()}');
               log('V2 onSuccess capture data: ${success?.data}');
+
+              // 👇 Parse the capture response to get structured shipping address
+              if (success != null && success.data is Map<String, dynamic>) {
+                final capture = PayPalCaptureResponseV2.fromJson(
+                  success.data as Map<String, dynamic>,
+                );
+
+                // Shipping address from buyer's PayPal account
+                final shipping = capture.shippingAddress;
+                if (shipping != null) {
+                  log('📦 Shipping to: ${shipping.name}');
+                  log('   ${shipping.addressLine1}');
+                  if (shipping.addressLine2 != null) {
+                    log('   ${shipping.addressLine2}');
+                  }
+                  log('   ${shipping.city}, ${shipping.state} ${shipping.postalCode}');
+                  log('   ${shipping.countryCode}');
+                }
+
+                // Payer info
+                final payer = capture.payer;
+                if (payer != null) {
+                  log('👤 Payer: ${payer.fullName} (${payer.emailAddress})');
+                }
+
+                // Capture details
+                log('💰 Captured: ${capture.captureAmount} ${capture.captureCurrency}');
+                log('   PayPal fee: ${capture.paypalFeeAmount} ${capture.paypalFeeCurrency}');
+                log('   Net: ${capture.netAmount} ${capture.netCurrency}');
+              }
+
               Navigator.pop(context);
-              return const Right<PayPalErrorModel, dynamic>(
-                null,
-              );
+              return const Right<PayPalErrorModel, dynamic>(null);
             },
             onError: (error) {
               log('V2 onError: ${error.message} (${error.key})');
@@ -143,49 +187,78 @@ class PaypalDemoHome extends StatelessWidget {
     );
   }
 
-  // void startPayPalBackendFlow(BuildContext context, int servicePlanId) async {
-  //   final service = PayPalService(DioHelper());
-  //
-  //   // Open checkout view with backend-driven flow
-  //   await Navigator.push(
-  //     context,
-  //     MaterialPageRoute(
-  //       builder: (_) => PaypalCheckoutView<PaypalPaymentModel>(
-  //         version: PayPalApiVersion.v2,
-  //         sandboxMode: true,
-  //         /// Pass a function that fetches the checkout URL and model from your backend
-  //         getCheckoutUrl: () async {
-  //           final result = await service.createOrder(servicePlanId: servicePlanId);
-  //           return result; // Either<PayPalErrorModel, PaypalPaymentModel>
-  //         },
-  //
-  //         onUserPayment: (success, payment) async {
-  //           print("Payment approved: ${payment.toJson()}");
-  //           print("Capture data: ${success?.data}");
-  //
-  //           // Capture via backend
-  //           final captureResult = await service.captureOrder(orderId: payment.orderId!);
-  //           captureResult.fold(
-  //                 (failure) => print("Capture failed: ${failure.message}"),
-  //                 (_) => print("Payment captured successfully"),
-  //           );
-  //
-  //           return Right<PayPalErrorModel, dynamic>(success?.data);
-  //         },
-  //
-  //         onError: (error) {
-  //           print("Checkout error: ${error.message}");
-  //           Navigator.pop(context);
-  //         },
-  //
-  //         onCancel: () {
-  //           print("Payment cancelled by user");
-  //           Navigator.pop(context);
-  //         },
-  //       ),
-  //     ),
-  //   );
-  // }
+  // ---------------- V2 BACKEND FLOW EXAMPLE ----------------
+  /// Production-recommended flow:
+  /// 1. Client calls YOUR backend to create a PayPal order.
+  /// 2. Backend returns a [PaypalPaymentModel] with the approvalUrl.
+  /// 3. SDK opens the approval page in a WebView.
+  /// 4. After user approval, [onUserPayment] is called with success=null
+  ///    (since the SDK doesn't hold the accessToken in backend flow).
+  /// 5. Client calls YOUR backend to capture the order.
+  void _startPayPalBackendFlow(BuildContext context, int servicePlanId) async {
+    // Replace with your actual backend service
+    final service = _DemoPayPalBackendService();
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaypalCheckoutView(
+          config: PaypalCheckoutConfig(
+            version: PayPalApiVersion.v2,
+            sandboxMode: true,
+
+            // Backend flow: client does NOT need credentials
+            clientId: null,
+            secretKey: null,
+            getAccessToken: null,
+
+            // Backend flow: order is created server-side, not needed here
+            payPalOrder: null,
+
+            /// 👇 Core of backend flow:
+            /// This callback fetches the checkout URL from YOUR backend.
+            /// The backend creates the PayPal order and returns a PaypalPaymentModel.
+            approvalUrl: () async {
+              final result = await service.createOrder(
+                servicePlanId: servicePlanId,
+              );
+              return result; // Either<PayPalErrorModel, PaypalPaymentModel>
+            },
+
+            onUserPayment: (success, payment) async {
+              log('Backend flow: payment approved: ${payment.toJson()}');
+              // success is null in backend flow (SDK didn't capture)
+              // → Call YOUR backend to capture the order
+              final captureResult = await service.captureOrder(
+                orderId: payment.orderId!,
+              );
+              captureResult.fold(
+                (failure) {
+                  log('Capture failed: ${failure.message}');
+                  Navigator.pop(context);
+                },
+                (captureData) {
+                  log('Payment captured successfully: $captureData');
+                  Navigator.pop(context);
+                },
+              );
+              return captureResult;
+            },
+
+            onError: (error) {
+              log('Backend flow error: ${error.message} (${error.key})');
+              Navigator.pop(context);
+            },
+
+            onCancel: () {
+              log('Backend flow cancelled by user');
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
   // ---------------- V1 EXAMPLE ----------------
   void _startV1Flow(BuildContext context) {
@@ -320,6 +393,108 @@ class _HelpCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DEMO BACKEND SERVICE (replace with your actual backend API client)
+// ---------------------------------------------------------------------------
+
+/// Simulates a backend service that interacts with PayPal on the server side.
+///
+/// In a real app, replace this class with your actual HTTP client that
+/// calls your backend endpoints (e.g., using Dio, http, Retrofit, etc.).
+///
+/// Your backend should:
+/// 1. Create PayPal orders via `POST /v2/checkout/orders`
+/// 2. Return the approval URL and order ID to the client
+/// 3. Capture orders via `POST /v2/checkout/orders/{id}/capture`
+class _DemoPayPalBackendService {
+  /// Calls your backend to create a PayPal order.
+  ///
+  /// Example backend endpoint: `POST /api/paypal/create-order`
+  /// Request body: `{ "service_plan_id": 42 }`
+  /// Response: `{ "order_id": "...", "approval_url": "https://..." }`
+  Future<Either<PayPalErrorModel, PaypalPaymentModel>> createOrder({
+    required int servicePlanId,
+  }) async {
+    // TODO: Replace with actual backend API call, e.g.:
+    //
+    // final response = await dio.post(
+    //   'https://your-backend.com/api/paypal/create-order',
+    //   data: {'service_plan_id': servicePlanId},
+    // );
+    //
+    // if (response.statusCode == 200) {
+    //   final data = response.data;
+    //   return Right(PaypalPaymentModel(
+    //     orderId: data['order_id'],
+    //     approvalUrl: data['approval_url'],
+    //     returnURL: data['return_url'] ?? defaultReturnURL,
+    //     cancelURL: data['cancel_url'] ?? defaultCancelURL,
+    //     accessToken: null,  // Backend holds the token, not the client
+    //     executeUrl: null,   // V2 doesn't use execute URL
+    //     status: data['status'],
+    //     message: 'Order created',
+    //     key: 'ORDER_CREATED',
+    //     code: 200,
+    //   ));
+    // } else {
+    //   return Left(PayPalErrorModel(
+    //     error: response.data,
+    //     message: 'Failed to create order',
+    //     key: 'BACKEND_CREATE_ORDER_FAILED',
+    //     code: response.statusCode ?? 500,
+    //   ));
+    // }
+
+    // Simulated response for demo purposes:
+    return Left(
+      PayPalErrorModel(
+        error: 'Demo mode: no real backend configured',
+        message:
+            'Replace _DemoPayPalBackendService with your actual backend service.\n'
+            'See the comments in the source code for implementation guidance.',
+        key: 'DEMO_NOT_CONFIGURED',
+        code: 501,
+      ),
+    );
+  }
+
+  /// Calls your backend to capture a previously approved PayPal order.
+  ///
+  /// Example backend endpoint: `POST /api/paypal/capture-order`
+  /// Request body: `{ "order_id": "..." }`
+  /// Response: `{ "status": "COMPLETED", "capture_id": "..." }`
+  Future<Either<PayPalErrorModel, dynamic>> captureOrder({
+    required String orderId,
+  }) async {
+    // TODO: Replace with actual backend API call, e.g.:
+    //
+    // final response = await dio.post(
+    //   'https://your-backend.com/api/paypal/capture-order',
+    //   data: {'order_id': orderId},
+    // );
+    //
+    // if (response.statusCode == 200) {
+    //   return Right(response.data);
+    // } else {
+    //   return Left(PayPalErrorModel(
+    //     error: response.data,
+    //     message: 'Failed to capture order',
+    //     key: 'BACKEND_CAPTURE_ORDER_FAILED',
+    //     code: response.statusCode ?? 500,
+    //   ));
+    // }
+
+    return Left(
+      PayPalErrorModel(
+        error: 'Demo mode: no real backend configured',
+        message: 'Replace with your actual capture API call',
+        key: 'DEMO_NOT_CONFIGURED',
+        code: 501,
       ),
     );
   }

@@ -96,6 +96,10 @@ export 'src/v2/models/paypal_payment_source_v2.dart';
 export 'src/v2/models/paypal_order_request_v2.dart';
 export 'src/v2/models/paypal_purchase_unit_v2.dart';
 
+// V2 Response models (capture response, payer)
+export 'src/v2/models/paypal_capture_response_v2.dart';
+export 'src/v2/models/paypal_payer_v2.dart';
+
 // -----------------------------------------------------------------------------
 // EXTERNAL UTILITIES
 // -----------------------------------------------------------------------------

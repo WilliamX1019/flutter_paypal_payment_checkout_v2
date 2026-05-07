@@ -49,6 +49,37 @@ class PayPalShippingAddressV2 {
     required this.countryCode,
   });
 
+  /// Creates a [PayPalShippingAddressV2] from PayPal API response JSON.
+  ///
+  /// Expected input format (from `purchase_units[].shipping`):
+  /// ```json
+  /// {
+  ///   "name": { "full_name": "John Doe" },
+  ///   "address": {
+  ///     "address_line_1": "123 Main St",
+  ///     "address_line_2": "Apt 5",
+  ///     "admin_area_2": "San Jose",
+  ///     "admin_area_1": "CA",
+  ///     "postal_code": "95131",
+  ///     "country_code": "US"
+  ///   }
+  /// }
+  /// ```
+  factory PayPalShippingAddressV2.fromJson(Map<String, dynamic> json) {
+    final nameObj = json['name'] as Map<String, dynamic>?;
+    final address = json['address'] as Map<String, dynamic>? ?? {};
+
+    return PayPalShippingAddressV2(
+      name: nameObj?['full_name'] as String? ?? '',
+      addressLine1: address['address_line_1'] as String? ?? '',
+      addressLine2: address['address_line_2'] as String?,
+      city: address['admin_area_2'] as String? ?? '',
+      state: address['admin_area_1'] as String? ?? '',
+      postalCode: address['postal_code'] as String? ?? '',
+      countryCode: address['country_code'] as String? ?? '',
+    );
+  }
+
   /// Converts this address into PayPal V2 JSON format.
   Map<String, dynamic> toJson() => {
         "name": {
