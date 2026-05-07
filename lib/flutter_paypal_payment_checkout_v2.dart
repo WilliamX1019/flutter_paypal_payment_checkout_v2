@@ -23,7 +23,7 @@
 library flutter_paypal_payment_checkout_v2;
 
 // -----------------------------------------------------------------------------
-// MAIN CHECKOUT VIEW
+// MAIN CHECKOUT VIEW & CONTROLLER
 // -----------------------------------------------------------------------------
 
 /// Provides:
@@ -32,6 +32,12 @@ library flutter_paypal_payment_checkout_v2;
 /// - Execution / capture flow
 /// - `onSuccess`, `onError`, `onCancel` callbacks
 export 'src/paypal_checkout_view.dart';
+
+/// UI-independent checkout controller.
+///
+/// Use [PaypalCheckoutController] when you want to handle the PayPal flow
+/// in your own WebView or custom UI. Also exports [PayPalUrlMatch].
+export 'src/paypal_checkout_controller.dart';
 
 // -----------------------------------------------------------------------------
 // SHARED UTILITIES & BASE CLASSES
